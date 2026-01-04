@@ -147,3 +147,5 @@ helps.txt
 
 # Local package lock files (root lock file handles dependencies)
 packages/*/package-lock.json
+
+android/.idea/**

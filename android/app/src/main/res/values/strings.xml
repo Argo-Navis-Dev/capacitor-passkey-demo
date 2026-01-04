@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">JS Capacitor Passkey Kit Demo</string>
-    <string name="title_activity_main">JS Capacitor Passkey Kit Demo</string>
+    <string name="app_name">Capacitor Passkey Demo</string>
+    <string name="title_activity_main">Capacitor Passkey Demo</string>
     <string name="package_name">com.argonavisdev.jscapacitorpasskeykit.demo</string>
     <string name="custom_url_scheme">com.argonavisdev.jscapacitorpasskeykit.demo</string>
 </resources>
