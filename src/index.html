@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Capacitor Passkey Plugin Demo - Stellar Smart Wallet</title>
+  <meta name="viewport"
+    content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="msapplication-tap-highlight" content="no" />
+
+  <!-- Stellar SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@stellar/stellar-sdk@14.1.1/dist/stellar-sdk.js"></script>
+
+  <!-- Ionic Core Web Components -->
+  <script type="module" src="https://unpkg.com/@ionic/core@7.7.0/dist/ionic/ionic.esm.js"></script>
+  <script nomodule src="https://unpkg.com/@ionic/core@7.7.0/dist/ionic/ionic.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/@ionic/core@7.7.0/css/ionic.bundle.css" />
+
+  <!-- Ionic PWA Elements -->
+  <script type="module"
+    src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.esm.js"></script>
+  <script nomodule
+    src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.js"></script>
+
+  <!-- Fonts and Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/x-icon" href="./assets/imgs/favicon.png" />
+  <link rel="manifest" href="./manifest.json" />
+
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+
+<body>
+  <ion-app>
+    <ion-header>
+      <ion-toolbar color="primary">
+        <ion-title>Capacitor Passkey Demo ▶️ Stellar Smart Wallet</ion-title>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content fullscreen class="ion-padding">
+      <div class="centered-content">
+
+        <ion-card>
+          <ion-card-header>
+            <ion-card-title color="primary">🚀 Stellar Soroban Smart Wallet Demo</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <h2>This section presents the main functionalities of the stellar-js-smart-wallet-sdk, which, by integrating
+              the Passkey Plugin, helps JavaScript developers implement user-friendly Stellar Smart Wallets with a
+              native user experience on any platform.</h2>
+            <ion-grid>
+              <ion-row>
+                <ion-col>
+                  <ion-button expand="block" id="create-smart-wallet-btn">➕ Create smart wallet</ion-button>
+                </ion-col>
+                <ion-col>
+                  <ion-button expand="block" id="sign-in-btn" color="secondary">🔒 Sign In</ion-button>
+                </ion-col>
+                <ion-col>
+                  <ion-button expand="block" id="reset-btn" color="warning">🔄 Reset</ion-button>
+                </ion-col>
+              </ion-row>
+
+              <div id="contract-info" class="hidden">
+                <hr />
+                <ion-row>
+
+                  <ion-col>
+                    <span id="contract-text"><strong>Contract:</strong> </span><br>
+                    <a href="https://stellar.expert/explorer" target="_blank" id="stellar-expert-link" class="link">View
+                      in Stellar Expert</a>
+                  </ion-col>
+                </ion-row>
+                <ion-row>
+                  <ion-col>
+                    <span id="balance-text"><strong>Balance: </strong></span>
+                  </ion-col>
+                </ion-row>
+                <ion-row>
+                  <ion-col size="8">
+                    <ion-button expand="block" id="add-funds-btn" color="primary">💸 Add 50XLM</ion-button>
+                  </ion-col>
+                </ion-row>
+              </div>
+              <!-- <ion-row>
+              <ion-col>
+                <ion-button expand="block" id="get-wallet-balance-btn" color="primary">Get wallet balance</ion-button>
+              </ion-col>
+            </ion-row> -->
+            </ion-grid>
+          </ion-card-content>
+        </ion-card>
+
+        <ion-card style="margin-top: 2rem;">
+          <ion-card-header>
+            <ion-card-title color="primary">🔑 Passkey Plugin Demo</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <h2>The goal of this section is to demonstrate the functionality of the
+              passkey plugin, which works across all platforms: web, Apple,
+              Android, and hardware.
+            </h2>
+            <ion-grid>
+              <ion-row>
+                <ion-col size="12">
+                  <ion-item>
+                    <ion-select id="passkey-authenticator-type-select" value="any" label="Authenticator Type">
+                      <ion-select-option value="any">Any (Platform or YubiKey)</ion-select-option>
+                      <ion-select-option value="platform">Platform (Face ID/Touch ID)</ion-select-option>
+                      <ion-select-option value="cross-platform">Cross-Platform (YubiKey)</ion-select-option>
+                    </ion-select>
+                  </ion-item>
+                </ion-col>
+              </ion-row>
+              <ion-row>
+                <ion-col>
+                  <ion-button expand="block" id="create-passkey-btn">➕ Create passkey</ion-button>
+                </ion-col>
+                <ion-col>
+                  <ion-button expand="block" id="authenticate-btn" color="secondary">🔒 Authenticate</ion-button>
+                </ion-col>
+              </ion-row>
+            </ion-grid>
+          </ion-card-content>
+        </ion-card>
+
+      </div>
+    </ion-content>
+  </ion-app>
+
+  <!-- <div class="passkey-plugin-demo-container">
+    <h1>Passkey Plugin Demo</h1>
+    <p>
+      The goal of this section is to demonstrate the functionality of the
+      passkey plugin, which works across all platforms: web, Apple, Android,
+      and hardware..
+    </p>
+    <button id="create-passkey" onclick="">Create passkey</button>
+    <button id="authenticate" onclick="">Authenticate</button>
+  </div>
+
+  <h1>Stellar Soroban specific part</h1>
+  <button id="create-smart-wallet" onclick="">Create smart wallet</button>
+  <button id="get-wallet-balance" onclick="">Get wallet balance</button>
+  <button id="add-funds" onclick="">Add funds!</button> -->
+
+  <script src="./js/main.ts" type="module"></script>
+</body>
+
+</html>

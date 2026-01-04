@@ -1,0 +1,13 @@
+{
+  "appId": "com.argonavisdev.jscapacitorpasskeykit.demo",
+  "appName": "Capacitor Passkey Demo",
+  "webDir": "dist",
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false
+    }
+  }
+}
+
+
+

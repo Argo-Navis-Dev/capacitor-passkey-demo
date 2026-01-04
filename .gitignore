@@ -137,3 +137,13 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+
+helps.txt
+
+.claude/settings.local.json
+
+./src/.env
+
+# Local package lock files (root lock file handles dependencies)
+packages/*/package-lock.json

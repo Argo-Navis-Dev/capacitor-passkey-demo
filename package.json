@@ -1,0 +1,36 @@
+{
+  "name": "capacitor-passkey-demo",
+  "version": "1.0.0",
+  "description": "This demo application demonstrates Capacitor Passkey Plugin integration for Stellar smart wallet creation and management.",
+  "type": "module",
+  "keywords": [
+    "capacitor",
+    "mobile"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:ios": "npm run build && npx cap sync ios",
+    "build:android": "npm run build && npx cap sync android",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "smart-wallet-sdk": "file:./packages/smart-wallet-sdk",
+    "sac-sdk": "file:./packages/sac-sdk",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/camera": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/dialog": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0",
+    "buffer": "^6.0.3",
+    "capacitor-passkey-plugin": "file:../capacitor-passkey-plugin",
+    "cbor-web": "^10.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "vite": "^5.4.2"
+  },
+  "author": "",
+  "license": "ISC"
+}

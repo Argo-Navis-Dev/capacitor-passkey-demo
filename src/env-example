@@ -1,0 +1,10 @@
+# This file is used to define environment variables for the Vite build process.
+# Before using rename this file to `.env` or `.env.local` as needed.
+VITE_RP_ID =
+VITE_CHALLENGE = 'stellaristhebetterblockchain'
+VITE_CONTRACT_WASM_HASH =
+VITE_SUBMITTER_SEED =
+VITE_RPC_URL =
+VITE_HORIZON_URL =
+VITE_NATIVE_CONTRACT_ID =
+VITE_NETWORK_PASSPHRASE =

@@ -1,0 +1,64 @@
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  color: var(--color-primary);
+}
+
+a {
+	color: var(--color-primary);
+  	text-decoration: none;
+}
+
+/* Only apply these styles on wider screens (e.g., desktop browsers) */
+@media (min-width: 800px) {
+  .centered-content {
+    margin: 32px auto;
+    max-width: 1024px;
+    width: 100%;
+  }
+  ion-card, ion-card-content, ion-card-header {
+    max-width: 1024px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  ion-button {
+    font-size: 1rem;
+    padding: 0.5em 1.2em;
+  }
+  body {
+    background: #f5f6fa;
+  }
+}
+
+.hidden {
+  display: none !important;
+}
+
+hr {
+	background: #3880ff;
+	height: 5;
+}
+
+.link {
+	color: #3880ff; 
+}
+
+@keyframes text-grow-flash {
+  0% {
+    font-size: 1em;
+  }
+  30% {
+    font-size: 1.6em;
+  }
+  100% {
+    font-size: 1em;
+  }
+}
+
+.balance-flash {
+  animation: text-grow-flash 0.5s;
+  transition: font-size 0.2s;
+  display: inline-block;
+}
