@@ -12,9 +12,7 @@
     "build": "vite build",
     "build:ios": "npm run build && npx cap sync ios",
     "build:android": "npm run build && npx cap sync android",
-    "preview": "vite preview",
-    "use:local": "npm pkg set dependencies.capacitor-passkey-plugin=file:../capacitor-passkey-plugin && npm install",
-    "use:npm": "npm pkg set dependencies.capacitor-passkey-plugin=capacitor-passkey-plugin && npm install"
+    "preview": "vite preview"
   },
   "dependencies": {
     "smart-wallet-sdk": "file:./packages/smart-wallet-sdk",
