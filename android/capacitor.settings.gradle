@@ -12,4 +12,4 @@ include ':capacitor-splash-screen'
 project(':capacitor-splash-screen').projectDir = new File('../node_modules/@capacitor/splash-screen/android')
 
 include ':capacitor-passkey-plugin'
-project(':capacitor-passkey-plugin').projectDir = new File('../../../capacitor-passkey-plugin/android')
+project(':capacitor-passkey-plugin').projectDir = new File('../../capacitor-passkey-plugin/android')
