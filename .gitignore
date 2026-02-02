@@ -142,6 +142,7 @@ vite.config.ts.timestamp-*
 helps.txt
 
 .claude/settings.local.json
+android/.claude/settings.local.json
 
 ./src/.env
 

@@ -1,8 +1,9 @@
 import { Dialog } from '@capacitor/dialog';
 import { DemoConfig } from './config';
-import { assembleCreatePasskeyOptions, assembleAuthenticateOptions, authenticate, createPasskey, getSelectedAuthenticatorType, PasskeyResultBase } from './utils';
+import { assembleCreatePasskeyOptions, assembleAuthenticateOptions, authenticate, createPasskey, getSelectedAuthenticatorType, PasskeyResultBase, saveAndroidCredential, clearAndroidCredentials } from './utils';
 import { StellarSmartWalletService } from './stellar-smart-wallet-service';
 import { PublicKeyCreationOptions } from 'capacitor-passkey-plugin';
+import { Capacitor } from '@capacitor/core';
 
 const CREDENTIAL_STORAGE_KEY = 'demo:credential';
 const DEFAULT_FUND_AMOUNT_XLM = 50;
@@ -38,6 +39,13 @@ export async function createSmartWallet(): Promise<void> {
                 }
                 const credential = extractCredential(registrationResult);
                 localStorage.setItem(CREDENTIAL_STORAGE_KEY, JSON.stringify(credential));
+
+                // Save credential for Android demo mode
+                const isAndroid = Capacitor.getPlatform() === 'android';
+                if (DemoConfig.androidDemo && isAndroid) {
+                    saveAndroidCredential(registrationResult.id, credential.rawId);
+                }
+
                 return registrationResult;
             },
             createPasskeyOptions
@@ -196,12 +204,24 @@ export async function signIn(): Promise<void> {
 /**
  * Resets the application state by clearing stored credentials, SDK instance, and UI.
  * Returns the user to the initial "create wallet" state.
+ * Note: In Android demo mode, this does NOT clear Android credentials.
  */
 export function reset() {
     localStorage.removeItem(CREDENTIAL_STORAGE_KEY);
     stellarService = null;
     document.getElementById('contract-info')?.classList.add('hidden');
     document.getElementById('create-smart-wallet-btn')?.classList.remove('hidden');
+}
+
+/**
+ * Clears Android YubiKey NFC stored credentials.
+ * Only visible when VITE_ANDROID_DEMO is enabled.
+ */
+export async function resetAndroid() {
+    clearAndroidCredentials();
+    await Dialog.alert({
+        message: 'Android credentials cleared successfully!',
+    });
 }
 
 /**
