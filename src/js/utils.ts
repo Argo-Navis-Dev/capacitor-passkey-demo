@@ -148,8 +148,9 @@ export async function assembleCreatePasskeyOptions(authenticatorType: Authentica
     return options;
   }
 
-export function assembleAuthenticateOptions(): PublicKeyAuthenticationOptions {
-  const challengeBytes = new TextEncoder().encode(DemoConfig.challenge);//Uint8Array
+export function assembleAuthenticateOptions(customChallenge?: Uint8Array): PublicKeyAuthenticationOptions {
+  // Use custom challenge if provided, otherwise use default from config
+  const challengeBytes = customChallenge || new TextEncoder().encode(DemoConfig.challenge);
   const isAndroid = Capacitor.getPlatform() === 'android';
   const useAndroidDemo = DemoConfig.androidDemo && isAndroid;
 
@@ -185,8 +186,13 @@ export function assembleAuthenticateOptions(): PublicKeyAuthenticationOptions {
     ...(useAndroidDemo && { authenticatorAttachment: 'cross-platform' })
   };
 
-  if (DemoConfig.debug && useAndroidDemo) {
-    console.log('Authentication options:', JSON.stringify(options, null, 2));
+  if (DemoConfig.debug) {
+    if (customChallenge) {
+      console.log('Using custom challenge for authentication');
+    }
+    if (useAndroidDemo) {
+      console.log('Authentication options:', JSON.stringify(options, null, 2));
+    }
   }
 
   return options;

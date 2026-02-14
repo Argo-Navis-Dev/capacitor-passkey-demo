@@ -364,3 +364,113 @@ function showBalanceFlash() {
         el.classList.add('balance-flash');
     }
 }
+
+/**
+ * Sends a payment from the smart wallet contract to a destination G address.
+ * Prompts for passkey authentication and executes the transfer.
+ */
+export async function sendPayment(): Promise<void> {
+    try {
+        // Get stored credential
+        const credential = getStoredCredential();
+        if (!credential) {
+            await Dialog.alert({
+                message: 'No wallet found. Please create a wallet first or sign in.',
+            });
+            return;
+        }
+
+        // Get destination address and amount from UI
+        const destinationInput = document.getElementById('destination-address-input') as any;
+        const amountInput = document.getElementById('payment-amount-input') as any;
+
+        if (!destinationInput || !amountInput) {
+            throw new Error('Payment input fields not found!');
+        }
+
+        const destination = destinationInput.value?.trim();
+        const amount = parseFloat(amountInput.value);
+
+        // Validate inputs
+        if (!destination) {
+            await Dialog.alert({
+                message: 'Please enter a destination address',
+            });
+            return;
+        }
+
+        if (!destination.startsWith('G') || destination.length !== 56) {
+            await Dialog.alert({
+                message: 'Invalid destination address. Must be a valid Stellar G address.',
+            });
+            return;
+        }
+
+        if (!amount || amount <= 0) {
+            await Dialog.alert({
+                message: 'Please enter a valid amount greater than 0',
+            });
+            return;
+        }
+
+        // Get contract ID from credential
+        const smartWalletSdk = getSmartWalletSdk();
+        const contractId = smartWalletSdk.deriveContractIdFromPasskeyId(credential.rawId);
+
+        if (DemoConfig.debug) {
+            console.log('Initiating payment:');
+            console.log('  Contract ID:', contractId);
+            console.log('  Destination:', destination);
+            console.log('  Amount:', amount, 'XLM');
+        }
+
+        // Check balance before attempting payment
+        const currentBalance = await smartWalletSdk.getWalletBalanceByContract(contractId);
+        const amountStroops = BigInt(Math.floor(amount * 10_000_000));
+
+        if (currentBalance < amountStroops) {
+            await Dialog.alert({
+                message: `Insufficient balance. You have ${(Number(currentBalance) / 10_000_000).toFixed(7)} XLM`,
+            });
+            return;
+        }
+
+        // Execute payment (authentication will happen inside sendPayment with correct challenge)
+        const txResult = await smartWalletSdk.sendPayment(
+            contractId,
+            destination,
+            amount,
+            credential.rawId,
+            DemoConfig.rpId
+        );
+
+        if (DemoConfig.debug) {
+            console.log('Payment transaction result:', txResult);
+        }
+
+        // Show success message
+        await Dialog.alert({
+            message: `Payment of ${amount} XLM sent successfully!`,
+        });
+
+        // Clear input fields
+        destinationInput.value = '';
+        amountInput.value = '';
+
+        // Wait for transaction to be confirmed on the network before refreshing balance
+        if (DemoConfig.debug) {
+            console.log('Waiting 3 seconds for transaction confirmation...');
+        }
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        // Refresh balance
+        await refreshBalance();
+        showBalanceFlash();
+
+    } catch (error) {
+        console.error('Failed to send payment:', error);
+        await Dialog.alert({
+            message: `Failed to send payment: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        });
+    }
+}

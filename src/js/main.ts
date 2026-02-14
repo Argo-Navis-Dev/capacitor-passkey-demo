@@ -1,6 +1,6 @@
 import { SplashScreen } from '@capacitor/splash-screen';
 import { createPasskey, authenticate } from './passkey-demo';
-import { createSmartWallet, signIn, addFixedFundForSignedInContract, reset, resetAndroid } from './capacitor-passkey-demo';
+import { createSmartWallet, signIn, addFixedFundForSignedInContract, reset, resetAndroid, sendPayment } from './capacitor-passkey-demo';
 import { DemoConfig } from './config';
 import { Capacitor } from '@capacitor/core';
 
@@ -12,6 +12,7 @@ window.addEventListener('DOMContentLoaded', function () {
   const createSmartWalletBtn = document.getElementById('create-smart-wallet-btn');
   const signInBtn = document.getElementById('sign-in-btn');
   const addFundsBtn = document.getElementById('add-funds-btn');
+  const sendPaymentBtn = document.getElementById('send-payment-btn');
   const resetBtn = document.getElementById('reset-btn');
   const resetAndroidBtn = document.getElementById('reset-android-btn');
   const resetAndroidCol = document.getElementById('reset-android-col');
@@ -52,6 +53,14 @@ window.addEventListener('DOMContentLoaded', function () {
   } else {
     addFundsBtn.addEventListener('click', () => {
       addFixedFundForSignedInContract();
+    });
+  }
+
+  if (sendPaymentBtn === null) {
+    console.error('Send payment button not found!');
+  } else {
+    sendPaymentBtn.addEventListener('click', () => {
+      sendPayment();
     });
   }
 
