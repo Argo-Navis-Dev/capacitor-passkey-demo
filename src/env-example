@@ -8,3 +8,10 @@ VITE_RPC_URL =
 VITE_HORIZON_URL =
 VITE_NATIVE_CONTRACT_ID =
 VITE_NETWORK_PASSPHRASE =
+
+# Android YubiKey NFC Demo Mode
+# Set to 'true' to enable Android-specific mode that uses non-resident keys with credential storage
+# This allows YubiKey NFC to work on Android by storing credential IDs in localStorage
+# and providing them in allowCredentials during authentication
+# Default: false (uses resident keys with discoverable credentials)
+VITE_ANDROID_DEMO = false

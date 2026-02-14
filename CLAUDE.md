@@ -80,6 +80,7 @@ Copy `src/env-example` to `src/.env` and configure:
 - `VITE_NATIVE_CONTRACT_ID` - Native XLM SAC contract ID
 - `VITE_NETWORK_PASSPHRASE` - Stellar network passphrase
 - `VITE_DEBUG` - Set to `true` for verbose logging
+- `VITE_ANDROID_DEMO` - Set to `true` for Android YubiKey NFC support (uses non-resident keys with credential storage)
 
 ## Dependencies
 
@@ -93,3 +94,12 @@ Copy `src/env-example` to `src/.env` and configure:
 - Passkey rawId (base64 encoded) is used as salt to derive deterministic contract IDs
 - Only ES256 (Secp256r1) keys are fully supported; RS256 keys will trigger a warning
 - Credential storage uses localStorage with key `demo:credential`
+
+### Android YubiKey NFC Support
+
+When `VITE_ANDROID_DEMO=true` on Android:
+- Uses non-resident keys (`userVerification: 'discouraged'`, `residentKey: 'discouraged'`) to enable YubiKey NFC compatibility
+- Credential IDs are stored in localStorage under `android_yubikey_nfc_credentials`
+- During authentication, stored credential IDs are passed in `allowCredentials` with `transports: ['nfc', 'usb']`
+- A "Reset Android" button appears to clear stored Android credentials
+- Regular "Reset" button clears session but preserves Android credentials for testing multiple sign-ins

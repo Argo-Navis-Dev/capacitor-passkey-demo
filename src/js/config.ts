@@ -17,7 +17,8 @@ export const DemoConfig = {
     horizonUrl: getRequiredEnv('VITE_HORIZON_URL'),
     nativeContractId: getRequiredEnv('VITE_NATIVE_CONTRACT_ID'),
     networkPassphrase: getRequiredEnv('VITE_NETWORK_PASSPHRASE'),
-    debug: import.meta.env.VITE_DEBUG === 'true'
+    debug: import.meta.env.VITE_DEBUG === 'true',
+    androidDemo: import.meta.env.VITE_ANDROID_DEMO === 'true'
 };
 
 const platform = Capacitor.getPlatform();

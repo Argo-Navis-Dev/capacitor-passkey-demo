@@ -1,7 +1,7 @@
-import { Client, Signer, SignerStorage } from 'smart-wallet-sdk';
+import { Client, Signer, SignerStorage, Secp256r1Signature, Signature, SignerKey, Signatures } from 'smart-wallet-sdk';
 import { Client as SacClient } from 'sac-sdk';
 import { PublicKeyCreationOptions } from 'capacitor-passkey-plugin';
-import { PasskeyRegistrationResult } from './utils';
+import { PasskeyRegistrationResult, PasskeyAuthenticationResult } from './utils';
 import { DemoConfig } from './config';
 import * as cborModule from 'cbor-web';
 import { Buffer } from 'buffer';
@@ -94,8 +94,14 @@ export class StellarSmartWalletService {
 
     const rawId = new Uint8Array(passkey.rawId);
     const credentialId = btoa(String.fromCharCode(...rawId));
+
+    // Convert credentialId to bytes (as ASCII string, not base64 decoded)
+    const credentialIdBytes = Buffer.from(credentialId);
+
     if (DemoConfig.debug) {
       console.log("Credential ID (base64):", credentialId);
+      console.log("Signer key bytes (hex):", credentialIdBytes.toString('hex'));
+      console.log("Signer key length:", credentialIdBytes.length);
     }
 
     const signerStorage: SignerStorage = { tag: 'Persistent', values: undefined as unknown as void };
@@ -103,7 +109,7 @@ export class StellarSmartWalletService {
     const signer: Signer = {
       tag: 'Secp256r1',
       values: [
-        Buffer.from(credentialId),
+        credentialIdBytes,
         Buffer.from(rawPublicKey),
         [undefined],
         [undefined],
@@ -427,5 +433,420 @@ export class StellarSmartWalletService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Sends a payment from the smart wallet contract to a Stellar G address.
+   * Uses passkey authentication to authorize the transfer via SAC.
+   *
+   * @param fromContractId - Smart wallet contract ID (C... address)
+   * @param toAddress - Destination Stellar address (G... address)
+   * @param amountXlm - Amount in XLM to send
+   * @param passkeyAuthResult - Passkey authentication result with signature
+   * @param credentialId - Base64-encoded credential ID
+   * @returns Transaction result
+   */
+  async sendPayment(
+    fromContractId: string,
+    toAddress: string,
+    amountXlm: number,
+    credentialId: string,
+    rpId?: string
+  ) {
+    try {
+      // Validate inputs
+      if (!fromContractId || !fromContractId.startsWith('C')) {
+        throw new Error('Invalid contract ID. Must be a C... address');
+      }
+      if (!toAddress || !toAddress.startsWith('G')) {
+        throw new Error('Invalid destination address. Must be a G... address');
+      }
+      if (!amountXlm || amountXlm <= 0) {
+        throw new Error('Amount must be greater than 0');
+      }
+
+      const amountStroops = this.xlmToStroops(amountXlm);
+
+      if (DemoConfig.debug) {
+        console.log('Sending payment from smart wallet:');
+        console.log('  From (contract):', fromContractId);
+        console.log('  To (address):', toAddress);
+        console.log('  Amount:', amountXlm, 'XLM (', amountStroops, 'stroops)');
+      }
+
+      // Get clients
+      const sacClient = this.getSacClient();
+      const rpcClient = new StellarSdk.rpc.Server(this.rpcUrl);
+      const horizonClient = new StellarSdk.Horizon.Server(this.horizonUrl, { allowHttp: true });
+
+      // Build SAC transfer transaction (from contract to G address)
+      const transferTx = await sacClient.transfer({
+        from: fromContractId,
+        to: toAddress,
+        amount: BigInt(amountStroops),
+      });
+
+      if (DemoConfig.debug) {
+        console.log('SAC transfer transaction built');
+      }
+
+      // Sign auth entries with passkey (this will prompt for authentication with correct challenge)
+      await transferTx.signAuthEntries({
+        address: fromContractId,
+        authorizeEntry: this.createPasskeyAuthorizeEntry(credentialId, fromContractId, rpId),
+      });
+
+      if (DemoConfig.debug) {
+        console.log('Auth entries signed with passkey');
+      }
+
+      // Get submitter account to sponsor the transaction
+      const submitterAccount = await horizonClient.loadAccount(this.submitterKeypair.publicKey());
+
+      // Build the final transaction with submitter as source (for fees)
+      const sorobanOperation = transferTx.built.operations[0] as any;
+      const invokeContract = sorobanOperation.func.invokeContract();
+      const contract = StellarSdk.StrKey.encodeContract(invokeContract.contractAddress().contractId());
+
+      const tmpTx = new StellarSdk.TransactionBuilder(submitterAccount, {
+        fee: '0',
+        networkPassphrase: this.networkPassphrase
+      })
+        .addOperation(StellarSdk.Operation.invokeContractFunction({
+          contract,
+          function: invokeContract.functionName().toString(),
+          args: invokeContract.args(),
+          auth: sorobanOperation.auth
+        }))
+        .setTimeout(5 * 60)
+        .build();
+
+      tmpTx.sign(this.submitterKeypair);
+
+      // Simulate transaction
+      const simulationRs = await rpcClient.simulateTransaction(tmpTx);
+
+      if (DemoConfig.debug) {
+        console.log('Simulation result:', simulationRs);
+      }
+
+      if (!('transactionData' in simulationRs)) {
+        console.error('Simulation failed. Full response:', JSON.stringify(simulationRs, null, 2));
+        if ('error' in simulationRs) {
+          throw new Error(`Simulation failed: ${simulationRs.error}`);
+        }
+        throw new Error('Simulation failed for payment transaction');
+      }
+
+      const sorobanData = simulationRs.transactionData.build();
+      const resourceFee = sorobanData.resourceFee().toBigInt();
+
+      // Build real transaction with correct fees
+      const realTransaction = StellarSdk.TransactionBuilder
+        .cloneFrom(tmpTx, {
+          fee: resourceFee.toString(),
+          sorobanData
+        })
+        .build();
+
+      realTransaction.sign(this.submitterKeypair);
+
+      // Create fee bump transaction
+      const feeBumpTx = StellarSdk.TransactionBuilder.buildFeeBumpTransaction(
+        this.submitterKeypair,
+        resourceFee.toString(),
+        realTransaction,
+        this.networkPassphrase
+      );
+
+      feeBumpTx.sign(this.submitterKeypair);
+
+      // Send transaction
+      const txResult = await rpcClient.sendTransaction(feeBumpTx);
+
+      if (DemoConfig.debug) {
+        console.log('Payment transaction sent:', txResult);
+      }
+
+      return txResult;
+    } catch (error) {
+      console.error('Error sending payment:', error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        console.error('Error response:', (error as { response: unknown }).response);
+      }
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Builds passkey signature structure from WebAuthn authentication result.
+   * Converts to the Signatures format expected by the smart wallet contract.
+   *
+   * @param passkeyAuthResult - WebAuthn authentication result
+   * @param credentialId - Base64-encoded credential ID
+   * @returns Signatures tuple with Map<SignerKey, Signature>
+   */
+  private buildPasskeySignature(
+    passkeyAuthResult: PasskeyAuthenticationResult,
+    credentialId: string
+  ): Signatures {
+    const response = passkeyAuthResult.response as AuthenticatorAssertionResponse;
+
+    // Extract WebAuthn components
+    const authenticatorData = Buffer.from(response.authenticatorData);
+    const clientDataJSON = Buffer.from(response.clientDataJSON);
+    const signatureBytes = Buffer.from(response.signature);
+
+    if (DemoConfig.debug) {
+      console.log('Building passkey signature:');
+      console.log('  Authenticator data:', authenticatorData.length, 'bytes');
+      console.log('  Client data JSON:', clientDataJSON.length, 'bytes');
+      console.log('  Signature:', signatureBytes.length, 'bytes');
+    }
+
+    // Convert DER signature to compact raw format (64 bytes) with low-S normalization
+    const compactSignature = this.compactSignature(signatureBytes);
+
+    // Build Secp256r1Signature structure
+    const secp256r1Sig: Secp256r1Signature = {
+      authenticator_data: authenticatorData,
+      client_data_json: clientDataJSON,
+      signature: compactSignature,
+    };
+
+    // Wrap in Signature variant
+    const signature: Signature = {
+      tag: 'Secp256r1',
+      values: [secp256r1Sig],
+    };
+
+    // Build SignerKey from credential ID
+    // IMPORTANT: Must match exactly how it was stored during deployment (line 106)
+    // credentialId is a base64 string, we store it as ASCII bytes (NOT decoded)
+    const credentialIdBuffer = Buffer.from(credentialId);
+    const signerKey: SignerKey = {
+      tag: 'Secp256r1',
+      values: [credentialIdBuffer],
+    };
+
+    if (DemoConfig.debug) {
+      console.log('Signer key bytes (hex):', credentialIdBuffer.toString('hex'));
+      console.log('Signer key length:', credentialIdBuffer.length);
+    }
+
+    // Create signatures map
+    const signaturesMap = new Map<SignerKey, Signature>();
+    signaturesMap.set(signerKey, signature);
+
+    // Return as Signatures tuple
+    const signatures: Signatures = [signaturesMap];
+
+    if (DemoConfig.debug) {
+      console.log('Passkey signature built successfully');
+    }
+
+    return signatures;
+  }
+
+  /**
+   * Creates a custom authorizeEntry function that uses passkey signatures.
+   * This function builds the proper challenge from the auth entry, prompts for
+   * passkey authentication, and signs the entry with the result.
+   *
+   * @param credentialId - Base64-encoded credential ID
+   * @param walletContractId - The smart wallet contract ID
+   * @param rpId - Optional Relying Party ID
+   * @returns Function to authorize entries (receives XDR, returns modified XDR)
+   */
+  private createPasskeyAuthorizeEntry(credentialId: string, walletContractId: string, rpId?: string) {
+    return async (entry: any) => {
+      if (DemoConfig.debug) {
+        console.log('Authorizing entry with passkey signature');
+      }
+
+      // Clone the entry
+      const clone = StellarSdk.xdr.SorobanAuthorizationEntry.fromXDR(entry.toXDR());
+
+      // Create a temporary wallet client to access the spec
+      const walletClient = new Client({
+        contractId: walletContractId,
+        networkPassphrase: this.networkPassphrase,
+        rpcUrl: this.rpcUrl,
+      });
+
+      // Get credentials from the cloned entry
+      const credentials = clone.credentials().address();
+
+      // Set expiration if not already set
+      let expiration = credentials.signatureExpirationLedger();
+      if (!expiration) {
+        const rpcClient = new StellarSdk.rpc.Server(this.rpcUrl);
+        const { sequence } = await rpcClient.getLatestLedger();
+        expiration = sequence + Math.floor(5 * 60 / 5); // 5 minutes, assuming 5 second ledger time
+        credentials.signatureExpirationLedger(expiration);
+      }
+
+      // Build the preimage hash
+      const networkIdHash = StellarSdk.hash(Buffer.from(this.networkPassphrase));
+      const preimage = StellarSdk.xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
+        new StellarSdk.xdr.HashIdPreimageSorobanAuthorization({
+          networkId: networkIdHash,
+          nonce: credentials.nonce(),
+          signatureExpirationLedger: credentials.signatureExpirationLedger(),
+          invocation: clone.rootInvocation()
+        })
+      );
+
+      const payload = StellarSdk.hash(preimage.toXDR());
+
+      if (DemoConfig.debug) {
+        console.log('Built challenge payload:', Buffer.from(payload).toString('hex'));
+      }
+
+      // Authenticate with passkey using the proper challenge
+      // Convert payload to base64url encoding for WebAuthn
+      const challengeBase64 = Buffer.from(payload)
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+
+      const authOptions: any = {
+        challenge: challengeBase64,
+        rpId: rpId || DemoConfig.rpId,
+        allowCredentials: [
+          {
+            id: credentialId,
+            type: "public-key" as const,
+          },
+        ],
+        userVerification: "preferred" as const,
+      };
+
+      if (DemoConfig.debug) {
+        console.log('Prompting for passkey authentication with challenge:', challengeBase64);
+      }
+
+      // Import authenticate function from utils
+      const utilsModule = await import('./utils');
+      const authResult = await utilsModule.authenticate(authOptions);
+
+      if (DemoConfig.debug) {
+        console.log('Passkey authentication successful');
+      }
+
+      // Build the signature from authentication result
+      const signatures = this.buildPasskeySignature(authResult, credentialId);
+
+      // Signatures is a tuple: [Map<SignerKey, Signature>]
+      const signaturesMap = signatures[0];
+
+      // Convert each signature to ScMapEntry using the contract spec
+      for (const [signerKey, signature] of signaturesMap.entries()) {
+        // Use contract spec to convert native types to ScVal
+        const scKeyType = StellarSdk.xdr.ScSpecTypeDef.scSpecTypeUdt(
+          new StellarSdk.xdr.ScSpecTypeUdt({ name: "SignerKey" })
+        );
+        const scValType = StellarSdk.xdr.ScSpecTypeDef.scSpecTypeUdt(
+          new StellarSdk.xdr.ScSpecTypeUdt({ name: "Signature" })
+        );
+
+        const scKey = walletClient.spec.nativeToScVal(signerKey, scKeyType);
+        const scVal = walletClient.spec.nativeToScVal(signature, scValType);
+
+        const scEntry = new StellarSdk.xdr.ScMapEntry({
+          key: scKey,
+          val: scVal,
+        });
+
+        // Update credentials signature based on current state
+        switch (credentials.signature().switch().name) {
+          case 'scvVoid':
+            // No existing signatures, create new vec with map containing our entry
+            credentials.signature(
+              StellarSdk.xdr.ScVal.scvVec([
+                StellarSdk.xdr.ScVal.scvMap([scEntry])
+              ])
+            );
+            break;
+          case 'scvVec':
+            // Add to existing signatures map
+            credentials.signature().vec()?.[0].map()?.push(scEntry);
+
+            // Order the map by key
+            credentials.signature().vec()?.[0].map()?.sort((a, b) => {
+              return (
+                a.key().vec()[0].sym() +
+                a.key().vec()[1].toXDR().join('')
+              ).localeCompare(
+                b.key().vec()[0].sym() +
+                b.key().vec()[1].toXDR().join('')
+              );
+            });
+            break;
+          default:
+            throw new Error('Unsupported signature type');
+        }
+      }
+
+      if (DemoConfig.debug) {
+        console.log('Entry authorized with passkey signature');
+      }
+
+      // Return the modified clone (as expected by authorizeEntry callback)
+      return clone;
+    };
+  }
+
+  /**
+   * Converts ECDSA signature from DER format to compact raw format (64 bytes).
+   * Also ensures the signature is in low-S form as required by Stellar.
+   *
+   * @param signature - DER-encoded signature from WebAuthn (typically 70-72 bytes)
+   * @returns Compact signature (exactly 64 bytes: 32 bytes r + 32 bytes s)
+   */
+  private compactSignature(signature: Buffer): Buffer {
+    // Decode the DER signature
+    let offset = 2;
+
+    const rLength = signature[offset + 1];
+    const r = signature.slice(offset + 2, offset + 2 + rLength);
+
+    offset += 2 + rLength;
+
+    const sLength = signature[offset + 1];
+    const s = signature.slice(offset + 2, offset + 2 + sLength);
+
+    // Convert r and s to BigInt
+    const rBigInt = BigInt('0x' + r.toString('hex'));
+    let sBigInt = BigInt('0x' + s.toString('hex'));
+
+    // Ensure s is in the low-S form
+    // https://github.com/stellar/stellar-protocol/discussions/1435#discussioncomment-8809175
+    // https://discord.com/channels/897514728459468821/1233048618571927693
+    // Define the order of the curve secp256r1
+    // https://github.com/RustCrypto/elliptic-curves/blob/master/p256/src/lib.rs#L72
+    const n = BigInt('0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551');
+    const halfN = n / 2n;
+
+    if (sBigInt > halfN) {
+      sBigInt = n - sBigInt;
+    }
+
+    // Convert back to buffers and ensure they are 32 bytes
+    const rPadded = Buffer.from(rBigInt.toString(16).padStart(64, '0'), 'hex');
+    const sLowS = Buffer.from(sBigInt.toString(16).padStart(64, '0'), 'hex');
+
+    // Concatenate r and low-s
+    const compactSignature = Buffer.concat([rPadded, sLowS]);
+
+    if (DemoConfig.debug) {
+      console.log('Converted DER signature to compact format:', compactSignature.length, 'bytes');
+    }
+
+    return compactSignature;
   }
 }
