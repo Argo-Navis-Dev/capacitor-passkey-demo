@@ -14,7 +14,7 @@ def capacitor_pods
   pod 'CapacitorCamera', :path => '../../node_modules/@capacitor/camera'
   pod 'CapacitorDialog', :path => '../../node_modules/@capacitor/dialog'
   pod 'CapacitorSplashScreen', :path => '../../node_modules/@capacitor/splash-screen'
-  pod 'CapacitorPasskeyPlugin', :path => '../../../capacitor-passkey-plugin'
+  pod 'CapacitorPasskeyPlugin', :path => '../../node_modules/capacitor-passkey-plugin'
 end
 
 target 'App' do

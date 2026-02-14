@@ -14,11 +14,9 @@
     "build:android": "npm run build && npx cap sync android",
     "preview": "vite preview",
     "use:local": "npm pkg set dependencies.capacitor-passkey-plugin=file:../capacitor-passkey-plugin && npm install",
-    "use:npm": "npm pkg set dependencies.capacitor-passkey-plugin=capacitor-passkey-plugin && npm install"
+    "use:npm": "npm pkg set dependencies.capacitor-passkey-plugin=latest && npm install"
   },
   "dependencies": {
-    "smart-wallet-sdk": "file:./packages/smart-wallet-sdk",
-    "sac-sdk": "file:./packages/sac-sdk",
     "@capacitor/android": "^8.0.0",
     "@capacitor/camera": "^8.0.0",
     "@capacitor/core": "^8.0.0",
@@ -26,8 +24,10 @@
     "@capacitor/ios": "^8.0.0",
     "@capacitor/splash-screen": "^8.0.0",
     "buffer": "^6.0.3",
-    "capacitor-passkey-plugin": "file:../capacitor-passkey-plugin",
-    "cbor-web": "^10.0.3"
+    "capacitor-passkey-plugin": "latest",
+    "cbor-web": "^10.0.3",
+    "sac-sdk": "file:./packages/sac-sdk",
+    "smart-wallet-sdk": "file:./packages/smart-wallet-sdk"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.0.0",
